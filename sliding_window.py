@@ -8,8 +8,8 @@ import json
 
 import mirex
 
-DEFAULT_ANNOTATIONS_PATH = ".\\Dataset\\annotations\\"
-DEFAULT_DATA_PATH = ".\\Dataset\\data\\"
+DEFAULT_ANNOTATIONS_PATH = "/content/AugmentedGiantSteps/fixed_small/annotations/"
+DEFAULT_DATA_PATH = "/content/AugmentedGiantSteps/fixed_small/"
 
 # Run the KeyRecognition CNN script to get the predicted key
 def predict_cnn(key_path, data_path, file):
