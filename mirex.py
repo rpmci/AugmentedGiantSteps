@@ -11,7 +11,7 @@ def perfect_fifth(kv1, kv2):
   if m1 != m2:
     return False
 
-  return abs(kv2_base - kv1_base) == 7
+  return (kv2_base - kv1_base) % 12 == 7 or (kv1_base - kv2_base) % 12 == 7
 
 def relative_mode(kv1, kv2):
   m1 = kv1 < 12
@@ -22,9 +22,9 @@ def relative_mode(kv1, kv2):
   if m1 == m2:
     return False
   elif m1 < m2:
-    return kv2_base == kv1_base + 3
+    return (kv2_base - kv1_base) % 12 == 3
   elif m1 > m2:
-    return kv1_base == kv2_base + 3
+    return (kv1_base - kv2_base) % 12 == 3
 
 def parallel_mode(kv1, kv2):
   m1 = kv1 < 12
