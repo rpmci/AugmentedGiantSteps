@@ -92,17 +92,42 @@ def main():
           # Step 5: Run the sliding window algorithm
           sound = AudioSegment.from_mp3(data_path + file)
           
-          # Window is 10 seconds (in milliseconds)
-          window = 10 * 1000
-          divisions = (len(sound) // window) + 1
+          # Window is 8/T seconds (in milliseconds)
+          window = 60000 * 8 / tempo
+          #window = 10 * 1000
+
+          # note: 1385 (1.385s) is the shortest window length that works
+
+          # step is 1/T seconds (in milliseconds)
+          #step = 60000 * 1 / tempo
+
+          # setting step = 4/T to make this not 200 iterations, 
+          step = 60000 * 4 / tempo
+          divisions = int((len(sound) - window) / step) + 1
+
+          # TODO keep track of output
+          # keylist should be a list of (start_time, end_time, key)
+          #keylist = []
+
+          # TODO keep track of current key prediction
+          #current_key = [start time, key]
 
           # TODO split up the file into multiple files
           for i in range(divisions):
-            split_file = split_path[0] + '-{}'.format(i) + split_path[1]
-            sound[i*window:(i+1)*window].export(split_data_path + split_file, format="mp3")
 
-            # Run keydetection on each file
-            print(predict_cnn(key_path, split_data_path, split_file))
+            # Create temporary file
+            split_file = split_path[0] + '-{}'.format(i) + split_path[1]
+            sound[step * i:step * i + window].export(split_data_path + split_file, format="mp3")
+
+            # Run KeyDetection on each file
+            prediction = predict_cnn(key_path, split_data_path, split_file)
+            print(prediction)
+
+            # TODO determine if the key has changed
+            # if the prediction meets the threshold
+
+            # Remove Temporary file
+            os.remove(split_data_path + split_file)
           
 
           # Step 6: Calculate the running MIREX score
