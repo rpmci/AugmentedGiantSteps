@@ -140,6 +140,10 @@ def main():
           print(keylist)
 
           # Step 6: Calculate the running MIREX score
+          # TODO
+          # reference evaluate.py, which takes in CSV
+          # in the form: 
+          # 0.000000000,14,"C# minor"
 
 if __name__ == '__main__':
     main()
