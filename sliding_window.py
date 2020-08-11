@@ -102,33 +102,42 @@ def main():
           #step = 60000 * 1 / tempo
 
           # setting step = 4/T to make this not 200 iterations, 
-          step = 60000 * 4 / tempo
+          step = 60000 * 8 / tempo
           divisions = int((len(sound) - window) / step) + 1
 
           # TODO keep track of output
-          # keylist should be a list of (start_time, end_time, key)
-          #keylist = []
+          # keylist should be a list of [start_time, key]
+          keylist = []
 
           # TODO keep track of current key prediction
           #current_key = [start time, key]
+          current_key = []
 
           # TODO split up the file into multiple files
           for i in range(divisions):
 
+            start = step * i
             # Create temporary file
             split_file = split_path[0] + '-{}'.format(i) + split_path[1]
-            sound[step * i:step * i + window].export(split_data_path + split_file, format="mp3")
+            sound[start:start + window].export(split_data_path + split_file, format="mp3")
 
             # Run KeyDetection on each file
             prediction = predict_cnn(key_path, split_data_path, split_file)
             print(prediction)
 
-            # TODO determine if the key has changed
-            # if the prediction meets the threshold
+            if not current_key:
+              current_key = [start / 1000, prediction]
+            elif current_key[1] != prediction:
+              keylist.append(current_key)
+              current_key = [start / 1000, prediction]
 
             # Remove Temporary file
             os.remove(split_data_path + split_file)
-          
+
+          if keylist[-1] != current_key:
+            keylist.append(current_key)
+
+          print(keylist)
 
           # Step 6: Calculate the running MIREX score
 
