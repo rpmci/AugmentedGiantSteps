@@ -6,12 +6,30 @@ from pydub import AudioSegment
 import os
 import shutil
 import json
+import csv
 
 #import mirex
 
-DEFAULT_ANNOTATIONS_PATH = "/content/AugmentedGiantSteps/fixed_small/annotations/"
-DEFAULT_DATA_PATH = "/content/AugmentedGiantSteps/fixed_small/"
-DEFAULT_SPLIT_DATA_PATH = "/content/AugmentedGiantSteps/fixed_small/split/"
+DEFAULT_ANNOTATIONS_PATH = "/content/AugmentedGiantSteps/data_200/annotations/"
+DEFAULT_DATA_PATH = "/content/AugmentedGiantSteps/data_200/"
+DEFAULT_CSV_OUT_PATH = "/content/AugmentedGiantSteps/data_200/csv_out/"
+
+v2k = [
+  'C major', 'Db major', 'D major', 'Eb major', 'E major', 'F major', 'Gb major', 'G major', 'Ab major', 'A major', 'Bb major', 'B major',
+  'C minor', 'Db minor', 'D minor', 'Eb minor', 'E minor', 'F minor', 'Gb minor', 'G minor', 'Ab minor', 'A minor', 'Bb minor', 'B minor'
+]
+
+k2v = { k: i for i, k in enumerate(v2k) }
+
+k_desc = [
+  'C', 'D', 'E', 'F', 'G', 'A', 'B', 'C'
+]
+
+def enharmonic_equiv(k):
+  # If k has a sharp, return the enharmonic equivalent (as a flat)
+  if '#' in k:
+    k = k_desc[k_desc.index(k[0]) + 1] + 'b' + k[2:]
+  return k
 
 # Run the KeyRecognition CNN script to get the predicted key
 def predict_cnn(key_path, data_path, file):
@@ -51,8 +69,6 @@ def main():
                         help="Input path to find annotations in. Default: {}".format(DEFAULT_ANNOTATIONS_PATH))
     parser.add_argument('--data', type=str, default=DEFAULT_DATA_PATH,
                         help="Input path to find testing dataset in. Default: {}".format(DEFAULT_DATA_PATH))
-    parser.add_argument('--split_data', type=str, default=DEFAULT_SPLIT_DATA_PATH,
-                        help="Input path to store testing dataset in. Default: {}".format(DEFAULT_SPLIT_DATA_PATH))
     # eg. C:\ProgramData\Anaconda3\Scripts\KeyRecognition
     parser.add_argument('--key', type=str, required=True,
                         help="Path to the KeyDetector program.")
@@ -64,7 +80,6 @@ def main():
 
     ann_path = args.ann
     data_path = args.data
-    split_data_path = args.split_data
 
     # Step 1: Provide path to KeyDetector and TempoDetector executables
     # eg. "python.exe .\KeyRecognition single .\10089-0.LOFI.mp3"
@@ -79,10 +94,19 @@ def main():
 
     scores = []
 
+    new_path = data_path + 'csv_out/'
+    try:
+        os.mkdir(new_path)
+    except OSError:
+        print ("Creation of the directory %s failed" % new_path)
+    else:
+        print ("Successfully created the directory %s " % new_path)
+
     # Step 3: Get list of data files in Dataset/ directory (or restrict to smaller set)
     for file in data_files:
         # Step 4: Find the corresponding annotation for the current file and parse the list of ground truth modulations
         split_path = os.path.splitext(file)
+        
         if (split_path[-1] == '.mp3'):
           ann_file = ann_path + split_path[0] + ".json"
           ann_data = json.load(open(ann_file))
@@ -93,8 +117,8 @@ def main():
           sound = AudioSegment.from_mp3(data_path + file)
           
           # Window is 8/T seconds (in milliseconds)
-          window = 60000 * 8 / tempo
-          #window = 10 * 1000
+          #window = 60000 * 8 / tempo
+          window = 19200
 
           # note: 1385 (1.385s) is the shortest window length that works
 
@@ -103,7 +127,9 @@ def main():
 
           # setting step = 4/T to make this not 200 iterations, 
           step = 60000 * 8 / tempo
-          divisions = int((len(sound) - window) / step) + 1
+
+          song_len = len(sound)
+          divisions = int((song_len - window) / step) + 1
 
           # TODO keep track of output
           # keylist should be a list of [start_time, key]
@@ -119,31 +145,39 @@ def main():
             start = step * i
             # Create temporary file
             split_file = split_path[0] + '-{}'.format(i) + split_path[1]
-            sound[start:start + window].export(split_data_path + split_file, format="mp3")
+            sound[start:start + window].export(data_path + split_file, format="mp3")
 
             # Run KeyDetection on each file
-            prediction = predict_cnn(key_path, split_data_path, split_file)
-            print(prediction)
+            prediction = enharmonic_equiv(predict_cnn(key_path, data_path, split_file))
+            print(prediction, k2v[prediction])
 
             if not current_key:
-              current_key = [start / 1000, prediction]
-            elif current_key[1] != prediction:
+              current_key = [start / 1000, k2v[prediction], prediction]
+              #current_key = [start / 1000, prediction]
+            elif current_key[-1] != prediction:
               keylist.append(current_key)
-              current_key = [start / 1000, prediction]
+              current_key = [start / 1000, k2v[prediction], prediction]
+              #current_key = [start / 1000, prediction]
 
             # Remove Temporary file
-            os.remove(split_data_path + split_file)
+            os.remove(data_path + split_file)
 
           if keylist[-1] != current_key:
             keylist.append(current_key)
 
           print(keylist)
+          f = open(new_path + split_path[0]+'.csv', 'w')
+          with f:
+              writer = csv.writer(f, quoting=csv.QUOTE_NONNUMERIC)
+              writer.writerows(keylist)
+          f.close
+
+          file = open(new_path + split_path[0] +'_time.txt', "w") 
+          file.write("{}".format(song_len / 1000)) 
+          file.close() 
 
           # Step 6: Calculate the running MIREX score
-          # TODO
-          # reference evaluate.py, which takes in CSV
-          # in the form: 
-          # 0.000000000,14,"C# minor"
+          #run evaluate.py
 
 if __name__ == '__main__':
     main()
